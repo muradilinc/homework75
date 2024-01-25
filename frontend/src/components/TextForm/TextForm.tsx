@@ -1,6 +1,6 @@
 'use client';
 import React, { useRef, useState } from 'react';
-import {Grid, TextField, Button} from '@mui/material';
+import { Grid, TextField, Button } from '@mui/material';
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward';
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import { Decode, Encode, Word } from '@/types';
@@ -11,59 +11,52 @@ const TextForm = () => {
   const [decode, setDecode] = useState('');
   const [password, setPassword] = useState('');
   const [encode, setEncode] = useState('');
+  const [error, setError] = useState('');
   const submitBtn = useRef<HTMLButtonElement | null>(null);
-  const decodeBtn = useRef<HTMLButtonElement | null>(null);
-  const encodeBtn = useRef<HTMLButtonElement | null>(null);
-  const decodeMutation = useMutation({
-    mutationFn: async (word: Word) => {
-      const response = await axiosApi.post<Encode>('/encode', word);
-      setDecode(response.data.encoded);
-    }
-  });
   const encodeMutation = useMutation({
     mutationFn: async (word: Word) => {
-      const response = await axiosApi.post<Decode>('/decode', word);
-      setEncode(response.data.decoded);
+      const response = await axiosApi.post(`/${word.path}`, {password: word.password, message: word.message});
+      const dataValue: string[] = Object.values(response.data);
+      if (Object.keys(response.data).includes('encoded')) {
+        setEncode('');
+        setDecode(dataValue[0]);
+      } else {
+        setEncode(dataValue[0]);
+        setDecode('');
+      }
     }
   });
 
-  const decodeHandle = async () => {
-    submitBtn.current?.click();
+  const inputDecodeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setDecode(event.target.value);
+    setError('decode');
+  }
+
+  const inputEncodeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setEncode(event.target.value);
+    setError('encode');
   }
 
   const encodeHandle = async () => {
-    submitBtn.current?.click();
-  }
-
-  const onSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const clickedButton = document.activeElement as HTMLButtonElement;
-
-    if (decodeBtn.current === clickedButton){
-      const word: Word = {
-        password,
-        message: encode,
-      };
-      if (word.message !== '') {
-        await decodeMutation.mutateAsync(word);
-        setEncode('');
-        setPassword('');
-      } else {
-        alert('Please enter encode field');
-      }
-    } else if (encodeBtn.current === clickedButton) {
-      const word: Word = {
-        password,
-        message: decode,
-      };
-      if (word.message !== '') {
-        await encodeMutation.mutateAsync(word);
-        setDecode('');
-        setPassword('');
-      } else {
-        alert('Please enter decode field');
-      }
+    if (decode.length) {
+      console.log('here');
+      await encodeMutation.mutateAsync({
+        password: password,
+        message: encode ? encode : decode,
+        path: encode ? 'encode' : 'decode',
+      });
     }
+  };
+
+  const onSubmit = async (event?: React.FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+
+    await encodeMutation.mutateAsync({
+      password: password,
+      message: encode ? encode : decode,
+      path: encode ? 'encode' : 'decode',
+    });
+
   };
 
   return (
@@ -76,7 +69,9 @@ const TextForm = () => {
             rows={4}
             label="decode"
             value={decode}
-            onChange={(event: React.ChangeEvent<HTMLInputElement>) => setDecode(event.target.value)}
+            required={!decode.length}
+            error={!decode.length && error === 'decode'}
+            onChange={inputDecodeChange}
           />
         </Grid>
         <Grid item>
@@ -85,10 +80,10 @@ const TextForm = () => {
             label="password"
             value={password}
             onChange={(event: React.ChangeEvent<HTMLInputElement>) => setPassword(event.target.value)}
-            required
+            required={!password.length}
           />
-          <Button ref={decodeBtn} onClick={decodeHandle}><ArrowUpwardIcon/></Button>
-          <Button ref={encodeBtn} onClick={encodeHandle}><ArrowDownwardIcon/></Button>
+          <Button type="submit"><ArrowUpwardIcon/></Button>
+          <Button type="button" onClick={encodeHandle}><ArrowDownwardIcon/></Button>
         </Grid>
         <Grid item>
           <TextField
@@ -97,10 +92,12 @@ const TextForm = () => {
             label="encode"
             rows={4}
             value={encode}
-            onChange={(event: React.ChangeEvent<HTMLInputElement>) => setEncode(event.target.value)}
+            required={!encode.length}
+            error={!encode.length && error === 'encode'}
+            helperText={!encode.length ? 'enter encode text' : ''}
+            onChange={inputEncodeChange}
           />
         </Grid>
-        <Button style={{display: 'none'}} ref={submitBtn} type="submit">click</Button>
       </Grid>
     </form>
   );

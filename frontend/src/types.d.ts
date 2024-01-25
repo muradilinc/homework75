@@ -1,6 +1,7 @@
 export interface Word {
   password: string;
   message: string;
+  path: string;
 }
 
 export interface Encode {
